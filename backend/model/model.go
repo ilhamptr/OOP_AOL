@@ -1,4 +1,4 @@
-package main
+package models
 
 import (
 	"time"
@@ -28,7 +28,7 @@ type Job struct{
 	Active bool `gorm:"column:active;default:true"`
 	CreatedAt time.Time
 
-	Assigner User `gorm:"foreignKey:AssignBy;references:ID"`
+	Assigner User `gorm:"foreignKey:AssignBy;references:ID;constraint:OnDelete:CASCADE;"`
 }
 
 type Application struct{
@@ -62,7 +62,7 @@ type QuestionAnswer struct {
 }
 
 
-func dbSession()(*gorm.DB,error){
+func DbSession()(*gorm.DB,error){
 	godotenv.Load()
 	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s",
 	os.Getenv("DB_HOST"),
@@ -74,7 +74,8 @@ func dbSession()(*gorm.DB,error){
 	if err != nil{
 		panic("Failed to connect to database");
 	}	
-	err = db.AutoMigrate(&User{},&Job{},&Application{},&Question{},&QuestionAnswer{})
+	// err = db.AutoMigrate(&User{},&Job{},&Application{},&Question{},&QuestionAnswer{})
+	err = db.AutoMigrate(&User{},&Job{},&Application{})
 	if err != nil{
 		return nil,err
 	}

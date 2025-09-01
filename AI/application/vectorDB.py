@@ -7,8 +7,6 @@ from langchain_groq import ChatGroq
 from langchain_cohere import CohereEmbeddings
 from dotenv import load_dotenv
 from fastapi import HTTPException
-import json
-import asyncio
 import os
 
 load_dotenv()
@@ -115,12 +113,6 @@ async def candidateDetails(jobDescription:str,resumeName:str):
 
     result = await structured_model.ainvoke(messages)
     return result
-
-
-# asyncio.run(candidateDetails(jobDescription=""" Responsibilities:\n\n- Contribute to the development of company products and projects based on requirements.\n- Program the computer by entering coded information.\n- Confirm program operation by conducting tests; modifying program sequence and/or codes.\n- Contribute to team effort by accomplishing related results as needed.\n- Prepare reference materials for users by writing operating instructions.\n- Maintain historical records by documenting program development and revisions.\n\nGeneral Requirements:\n\n- Candidate must possess at least 
-#                              a SMU, Diploma, or Bachelor's Degree in any field.\n- Applicants must be willing to work in Bandung.\n- Willing to travel and/or be placed out of town.\n- No work experience required.\n- 2 full-time positions available.\n- Fast learner, detail-oriented, and able to work under tight timelines.\n- Positive working attitude, self-initiated, and disciplined.\n- Good communication skills and self-managed.\n- Motivated to self-study and research.\n\nTechnical Requirements:\n\n- Strong knowledge of Object-Oriented Programming (OOP).\n- Good understanding of web programming concepts (client-server, HTTP methods, sessions, cookies).\n-
-#                               Good knowledge of HTML & CSS.\n- Experience with web MVC frameworks (e.g., Laravel, CakePHP, Java iBatis, Java Spring, CodeIgniter) is a plus.
-#                              \n- Comfortable with databases and SQL.\n- Knowledge and experience with Python or Node.js is a plus.\n- Freelance experience is a plus.\n- Familiar with Linux is a plus.\n- Familiar with Subversion or Git is a plus.""",resumeID="1bdeb99a-2c87-48f2-bfeb-f880a8e07bf9"))
 
 
 

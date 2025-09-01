@@ -1,4 +1,4 @@
-package main
+package user
 
 import (
 	"fmt"
@@ -13,6 +13,8 @@ import (
 	"gorm.io/gorm"
 	"github.com/sendgrid/sendgrid-go"
 	"github.com/sendgrid/sendgrid-go/helpers/mail"
+	"product/backend/model"
+	"product/backend/util"
 )
 type SignUp struct{
 	Email string `json:"email"`
@@ -20,7 +22,7 @@ type SignUp struct{
 	Password string `json:"password"`
 }
 
-type Login struct{
+type LoginStruct struct{
 	Email string `json:"email" validate:"required"`
 	Username string `json:"username" validate:"required"`
 	Password string `json:"password" validate:"required"`
@@ -35,7 +37,7 @@ type Payload struct{
 
 
 
-func register(db *gorm.DB)gin.HandlerFunc{
+func Register(db *gorm.DB)gin.HandlerFunc{
 	return func(c *gin.Context){
 	var input SignUp
 	if err := c.BindJSON(&input); err != nil{
@@ -56,14 +58,14 @@ func register(db *gorm.DB)gin.HandlerFunc{
 		return
 	}
 
-	validPassword := isValidPassword(input.Password)
+	validPassword := utils.IsValidPassword(input.Password)
 	if !validPassword{
 		c.IndentedJSON(http.StatusBadRequest, gin.H{
 		"error": "Password must be at least 8 characters long and contain at least one special character.",})
 		return
 	}
 
-	var UserExist User
+	var UserExist models.User
 	if err := db.Where("email = ? OR username = ?",input.Email,input.Username).First(&UserExist).Error;err == nil{
 		c.IndentedJSON(http.StatusConflict,gin.H{"error":"username or email already exist"})
 		return
@@ -71,7 +73,7 @@ func register(db *gorm.DB)gin.HandlerFunc{
 	id := uuid.New()  
 	hashedPassword,_ := bcrypt.GenerateFromPassword([]byte(input.Password),bcrypt.DefaultCost)
 	
-	user := User{ID: id.String(),Email:input.Email,Username: input.Username,Password: string(hashedPassword)}
+	user := models.User{ID: id.String(),Email:input.Email,Username: input.Username,Password: string(hashedPassword)}
 	db.Create(&user)
 
 	err := sendVerifLink(user.Email,user.ID)
@@ -135,10 +137,10 @@ func sendVerifLink(email,id string)error{
 	// return nil
 } 
 
-func verifyUser(db *gorm.DB)gin.HandlerFunc{
+func VerifyUser(db *gorm.DB)gin.HandlerFunc{
 	return func (c *gin.Context)  {
 		userId := c.Param("userId")
-		var userData User
+		var userData models.User
 		if err := db.Where("id = ?", userId).First(&userData).Error; err != nil{
 			c.IndentedJSON(http.StatusNotFound,gin.H{"error":"account not found"})
 			return
@@ -153,15 +155,15 @@ func verifyUser(db *gorm.DB)gin.HandlerFunc{
 	}
 }
 
-func login(db *gorm.DB)gin.HandlerFunc{
+func Login(db *gorm.DB)gin.HandlerFunc{
 	return func(c *gin.Context) {
-		var loginInput Login
+		var loginInput LoginStruct
 		if err := c.BindJSON(&loginInput); err != nil{
 			c.IndentedJSON(http.StatusBadRequest,gin.H{"error":"invalid json input"})
 			return
 		} 
 
-		var UserExist User
+		var UserExist models.User
 		if err := db.Where("email = ? OR username = ?",loginInput.Email,loginInput.Username).First(&UserExist).Error; err != nil{
 			c.IndentedJSON(http.StatusUnauthorized,gin.H{"error":"account not found"})
 			return
@@ -194,7 +196,7 @@ func login(db *gorm.DB)gin.HandlerFunc{
 	}
 }
 
-func authentication(c *gin.Context){
+func Authentication(c *gin.Context){
 	authHeader := c.GetHeader("Authorization")
 
 	if authHeader == "" || !strings.HasPrefix(authHeader,"Bearer "){
@@ -216,7 +218,7 @@ func authentication(c *gin.Context){
 	c.Next()
 }
 
-func protected(c *gin.Context){
+func Protected(c *gin.Context){
 	value,exist := c.Get("claims")
 	if !exist {
 			c.IndentedJSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})

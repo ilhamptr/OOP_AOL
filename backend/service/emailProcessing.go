@@ -1,4 +1,4 @@
-package main
+package services
 
 import (
 	"net/http"
@@ -12,15 +12,17 @@ import (
 	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 	"golang.org/x/crypto/bcrypt"
+	"product/backend/model"
+	"product/backend/util"
+	"product/backend/config"
 )
 
-type ForgotPassword struct{
+type ForgotPass struct{
 	Email string `json:"email"`
 }
 
 type VerifyOTP struct{
 	Email string `json:"email"`
-	Username string `json:"username"`
 	Otp string `json:"otp"`
 	NewPassword string `json:"new_password"`
 }
@@ -58,11 +60,11 @@ func sendOtp(email,otp string)error{
 
 
 
-func forgotPassword(db *gorm.DB)gin.HandlerFunc{
+func ForgotPassword(db *gorm.DB)gin.HandlerFunc{
 	
 	return func(c *gin.Context)  {
-		var input ForgotPassword
-		var user User
+		var input ForgotPass
+		var user models.User
 		if err := c.BindJSON(&input); err != nil{
 			c.IndentedJSON(http.StatusBadRequest,gin.H{"error":"invalid json input"})
 			return
@@ -85,13 +87,13 @@ func forgotPassword(db *gorm.DB)gin.HandlerFunc{
 		}
 
 		key := "otp:" + input.Email
-		otp,err := generateOTP()
+		otp,err := utils.GenerateOTP()
 		if err != nil{
 			c.IndentedJSON(http.StatusInternalServerError, gin.H{"error": "failed to generate otp"})
 			return 
 		}
 		expiration := 5*time.Minute
-		err  = redisClient.Set(ctx,key,otp,expiration).Err()
+		err  = config.RedisClient.Set(config.Ctx,key,otp,expiration).Err()
 		if err !=nil{
 			c.IndentedJSON(http.StatusInternalServerError, gin.H{"error": "failed to store otp"})
 			return
@@ -106,7 +108,7 @@ func forgotPassword(db *gorm.DB)gin.HandlerFunc{
 	}
 }
 
-func verifyOtp(db *gorm.DB)gin.HandlerFunc{
+func VerifyOtp(db *gorm.DB)gin.HandlerFunc{
 	return func(c *gin.Context){
 		var verify VerifyOTP
 
@@ -116,7 +118,7 @@ func verifyOtp(db *gorm.DB)gin.HandlerFunc{
 		}
 
 		otpKey := "otp:" + verify.Email
-		val,err:= redisClient.Get(ctx,otpKey).Result()
+		val,err:= config.RedisClient.Get(config.Ctx,otpKey).Result()
 		if err == redis.Nil {
 			c.IndentedJSON(http.StatusUnauthorized, gin.H{"error": "OTP not found or expired"})
 			return
@@ -130,15 +132,15 @@ func verifyOtp(db *gorm.DB)gin.HandlerFunc{
 			return
 		}
 
-		validPassword := isValidPassword(verify.NewPassword)
+		validPassword := utils.IsValidPassword(verify.NewPassword)
 		if !validPassword{
 			c.IndentedJSON(http.StatusBadRequest, gin.H{
 			"error": "Password must be at least 8 characters long and contain at least one special character.",})
 			return
 		}
 
-		var userData User
-		if err := db.Where("email = ? OR username = ?",verify.Email,verify.Username).First(&userData).Error; err != nil{
+		var userData models.User
+		if err := db.Where("email = ?",verify.Email).First(&userData).Error; err != nil{
 			c.IndentedJSON(http.StatusNotFound,gin.H{"error":"account not found"})
 			return
 		}

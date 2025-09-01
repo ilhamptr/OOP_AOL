@@ -37,9 +37,3 @@ async def getMatchingResume(resume:resumeMatching,
     resumeProcessing = await candidateDetails(jobDescription=resume.jobDescription,
                                               resumeName=resume.resumeName)
     return resumeProcessing
-
-# @app.post("/matching-process/",status_code=200)
-# async def getMatchingResume(resume:resumeMatching,
-#                             _: dict = Depends(verify_jwt)):
-#     print(resume.jobDescription,resume.resumeName)
-#     return {"message":"okay"}

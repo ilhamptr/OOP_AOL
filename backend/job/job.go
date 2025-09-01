@@ -1,5 +1,4 @@
-package main
-
+package job
 import (
 	"net/http"
 	"github.com/google/uuid"
@@ -7,7 +6,9 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"gorm.io/gorm"
 	"strconv"
-
+	"product/backend/model"
+	"product/backend/util"
+	"product/backend/service"
 )
 
 type jobInput struct{
@@ -16,7 +17,7 @@ type jobInput struct{
 }
 
 
-func addJob(db *gorm.DB)gin.HandlerFunc{
+func AddJob(db *gorm.DB)gin.HandlerFunc{
 	return func(c *gin.Context){
 		var job_input jobInput
 		if err := c.BindJSON(&job_input); err != nil{
@@ -37,15 +38,15 @@ func addJob(db *gorm.DB)gin.HandlerFunc{
 		assigner := claims["id"].(string)
 
 
-		job := Job{ID: id.String(),JobTitle: job_input.JobTitle,Description: job_input.Description,AssignBy: assigner,Assigner: User{ID: assigner,Username: claims["username"].(string),Email: claims["email"].(string)}}
+		job := models.Job{ID: id.String(),JobTitle: job_input.JobTitle,Description: job_input.Description,AssignBy: assigner,Assigner: models.User{ID: assigner,Username: claims["username"].(string),Email: claims["email"].(string)}}
 		db.Create(&job)
 		c.IndentedJSON(http.StatusCreated,job)
 	}
 }
 
-func getJobs(db *gorm.DB)gin.HandlerFunc{
+func GetJobs(db *gorm.DB)gin.HandlerFunc{
 	return func(c *gin.Context){
-		var jobs []Job
+		var jobs []models.Job
 		value,exist := c.Get("claims")
 		if !exist{
 			c.IndentedJSON(http.StatusBadRequest,gin.H{"error":"authentication failed, please try again"})
@@ -62,7 +63,7 @@ func getJobs(db *gorm.DB)gin.HandlerFunc{
 	}
 }
 
-func deleteJob(db *gorm.DB)gin.HandlerFunc{
+func DeleteJob(db *gorm.DB)gin.HandlerFunc{
 	return func(c *gin.Context){
 		jobId := c.Param("jobId")
 		value,exist := c.Get("claims")
@@ -74,7 +75,7 @@ func deleteJob(db *gorm.DB)gin.HandlerFunc{
 		claims := value.(jwt.MapClaims)
 		userId := claims["id"].(string)
 
-		var job Job
+		var job models.Job
 		if err := db.First(&job,"id = ?",jobId).Error; err != nil{
 			c.IndentedJSON(http.StatusNotFound,gin.H{"error":"record not found"})
 			return 
@@ -92,12 +93,12 @@ func deleteJob(db *gorm.DB)gin.HandlerFunc{
 	}
 }
 
-func seeApplicants(db *gorm.DB) gin.HandlerFunc{
+func SeeApplicants(db *gorm.DB) gin.HandlerFunc{
 	return func(c *gin.Context) {
 		jobId := c.Param("jobId")
-		var job Job
+		var job models.Job
 
-		val,exist := authenticated(c)
+		val,exist := utils.Authenticated(c)
 		claims := val.(jwt.MapClaims)
 		userId := claims["id"].(string)
 
@@ -110,14 +111,14 @@ func seeApplicants(db *gorm.DB) gin.HandlerFunc{
 			return 
 		}
 
-		authorized := JobAuthorization(userId,job)
+		authorized := utils.JobAuthorization(userId,job)
 
 		if !authorized{
 			c.IndentedJSON(http.StatusForbidden,gin.H{"error":"you are not allowed to access this record"})
 			return 
 		}
 
-		var applicants []Application
+		var applicants []models.Application
 		if err := db.Where("job_id",jobId).Find(&applicants).Error; err != nil{
 			c.IndentedJSON(http.StatusNotFound,gin.H{"error":"records not found"})
 			return
@@ -126,15 +127,15 @@ func seeApplicants(db *gorm.DB) gin.HandlerFunc{
 	}
 }
 
-func scoringApplicants(db *gorm.DB) gin.HandlerFunc{
+func ScoringApplicants(db *gorm.DB) gin.HandlerFunc{
 	return func(c *gin.Context) {
 		jobId := c.Param("jobId")
 		token := c.GetHeader("Authorization")
 		query:=c.DefaultQuery("topNum","1")
 		topNumber,_ := strconv.Atoi(query)
-		var job Job
+		var job models.Job
 
-		val,exist := authenticated(c)
+		val,exist := utils.Authenticated(c)
 		claims := val.(jwt.MapClaims)
 		userId := claims["id"].(string)
 
@@ -148,13 +149,13 @@ func scoringApplicants(db *gorm.DB) gin.HandlerFunc{
 			return 
 		}
 
-		authorized := JobAuthorization(userId,job)
+		authorized := utils.JobAuthorization(userId,job)
 		if !authorized{
 			c.IndentedJSON(http.StatusForbidden,gin.H{"error":"you are not allowed to access this record"})
 			return 
 		}
 
-		val,err := getScoring(token,job.Description,jobId,topNumber)
+		val,err := services.GetScoring(token,job.Description,jobId,topNumber)
 		if err != nil{
 			c.IndentedJSON(http.StatusInternalServerError,gin.H{"error":err})
 			return 
@@ -163,14 +164,14 @@ func scoringApplicants(db *gorm.DB) gin.HandlerFunc{
 	}
 }
 
-func applicantDetails(db *gorm.DB) gin.HandlerFunc{
+func ApplicantDetails(db *gorm.DB) gin.HandlerFunc{
 	return func(c *gin.Context) {
 		token := c.GetHeader("Authorization")
 		jobId := c.Param("jobId")
 		resumeName := c.Param("resumeName")
 
-		val,exist := authenticated(c)
-		var job Job
+		val,exist := utils.Authenticated(c)
+		var job models.Job
 
 		claims := val.(jwt.MapClaims)
 		userId := claims["id"].(string)
@@ -185,13 +186,13 @@ func applicantDetails(db *gorm.DB) gin.HandlerFunc{
 			return 
 		}
 
-		authorized := JobAuthorization(userId,job)
+		authorized := utils.JobAuthorization(userId,job)
 		if !authorized{
 			c.IndentedJSON(http.StatusForbidden,gin.H{"error":"you are not allowed to access this record"})
 			return 
 		}
 
-		val,err := scoringDetails(token,job.Description,resumeName)
+		val,err := services.ScoringDetails(token,job.Description,resumeName)
 		if err != nil{
 			c.IndentedJSON(http.StatusInternalServerError,gin.H{"error":err})
 			return 

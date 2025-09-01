@@ -1,4 +1,4 @@
-package main
+package utils
 
 import (
 	"crypto/rand"
@@ -6,9 +6,10 @@ import (
 	"math/big"
 	"regexp"
 	"github.com/gin-gonic/gin"
+	"product/backend/model"
 )
 
-func isValidPassword(password string) bool {
+func IsValidPassword(password string) bool {
 	if len(password) < 8 {
 		return false
 	}
@@ -18,7 +19,7 @@ func isValidPassword(password string) bool {
 }
 
 
-func generateOTP() (string,error) {
+func GenerateOTP() (string,error) {
 	max := big.NewInt(1000000)
 	n, err := rand.Int(rand.Reader, max)
 	if err != nil {
@@ -27,7 +28,7 @@ func generateOTP() (string,error) {
 	return fmt.Sprintf("%06d", n.Int64()),err
 }
 
-func authenticated(context *gin.Context) (interface{},bool){
+func Authenticated(context *gin.Context) (interface{},bool){
 	val,exist := context.Get("claims")
 	if !exist{
 		return val,false
@@ -35,6 +36,6 @@ func authenticated(context *gin.Context) (interface{},bool){
 	return val,true
 }
 
-func JobAuthorization(userId string, job Job) bool{
+func JobAuthorization(userId string, job models.Job) bool{
 		return userId == job.AssignBy
 }

@@ -1,19 +1,14 @@
 package main
 
 import (
-	"github.com/gin-gonic/gin"
-	"github.com/joho/godotenv"
-	"github.com/redis/go-redis/v9"
-	"os"
+	"product/backend/job"
+	"product/backend/model"
+	"product/backend/service"
+	"product/backend/config"
+	"product/backend/user"
+
 	"github.com/gin-contrib/cors"
-	"context"
-)
-
-
-var (
-	redisClient *redis.Client
-	ctx = context.Background()
-
+	"github.com/gin-gonic/gin"
 )
 
 func main(){
@@ -26,34 +21,30 @@ func main(){
         ExposeHeaders:   []string{"Content-Length"},
     }))
 
-	redisClient = redis.NewClient(&redis.Options{
-		Addr:     "localhost:6379",
-		Password: os.Getenv("REDIS_PASSWORD"),
-		DB: 0,
-	})
-	godotenv.Load()
+	config.InitRedis()
 
-	db,_ := dbSession()
+	db,_ := models.DbSession()
 
 	// protected Endpoints
 	protectedEnpoints := router.Group("")
-	protectedEnpoints.Use(authentication)
-	protectedEnpoints.POST("/protected",protected)
-	protectedEnpoints.POST("/add-job",addJob(db))
-	protectedEnpoints.GET("/jobs",getJobs(db))
-	protectedEnpoints.DELETE("/delete-job/:jobId",deleteJob(db))
-	protectedEnpoints.GET("/view-applicants/:jobId",seeApplicants(db))
-	protectedEnpoints.POST("/view-top-applicants/:jobId",scoringApplicants(db))
-	protectedEnpoints.POST("/view-applicant-evaluation/:jobId/:resumeName",applicantDetails(db))
+	protectedEnpoints.Use(user.Authentication)
+	protectedEnpoints.POST("/protected",user.Protected)
+	protectedEnpoints.POST("/add-job",job.AddJob(db))
+	protectedEnpoints.GET("/jobs",job.GetJobs(db))
+	protectedEnpoints.DELETE("/delete-job/:jobId",job.DeleteJob(db))
+	protectedEnpoints.GET("/view-applicants/:jobId",job.SeeApplicants(db))
+	protectedEnpoints.POST("/view-top-applicants/:jobId",job.ScoringApplicants(db))
+	protectedEnpoints.POST("/view-applicant-evaluation/:jobId/:resumeName",job.ApplicantDetails(db))
+	protectedEnpoints.GET("/download-resume/:resumeName",services.GetResumeFile(db))
 
 
-	router.POST("/apply/:jobId",Apply(db))
-	router.GET("/job-details/:jobId",getJobDetails(db))
-	router.POST("/forgot-password",forgotPassword(db))
-	router.POST("/verify-otp",verifyOtp(db))
-	router.GET("/verify-account/:userId",verifyUser(db))
-	router.POST("/sign-up",register(db))
-	router.POST("/login",login(db))
+	router.POST("/apply/:jobId",job.Apply(db))
+	router.GET("/job-details/:jobId",job.GetJobDetails(db))
+	router.POST("/forgot-password",services.ForgotPassword(db))
+	router.POST("/verify-otp",services.VerifyOtp(db))
+	router.GET("/verify-account/:userId",user.VerifyUser(db))
+	router.POST("/sign-up",user.Register(db))
+	router.POST("/login",user.Login(db))
 	
 	router.Run("localhost:8080")
 }

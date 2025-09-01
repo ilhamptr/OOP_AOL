@@ -1,4 +1,4 @@
-package main
+package services
 
 import (
 	"bytes"
@@ -20,7 +20,7 @@ type EvaluationInput struct{
 	ResumeName string `json:"resumeName" binding:"required"`
 }
 
-func submitResume(fileBytes []byte,jobID,applicantName,filename string) ([]byte,error) {
+func SubmitResume(fileBytes []byte,jobID,applicantName,filename string) ([]byte,error) {
 	// change the domain in production
 	endpoint := fmt.Sprintf("http://127.0.0.1:8000/resume-processing/%v",jobID)
 	body := &bytes.Buffer{}
@@ -51,7 +51,7 @@ func submitResume(fileBytes []byte,jobID,applicantName,filename string) ([]byte,
 
 }
 
-func getScoring(token,jobDesc,jobId string, topNumber int) (map[string]interface{},error){
+func GetScoring(token,jobDesc,jobId string, topNumber int) (map[string]interface{},error){
 	// change the domain in production
 	endpoint := fmt.Sprintf("http://127.0.0.1:8000/get-applicants/%v",jobId)
 
@@ -84,7 +84,7 @@ func getScoring(token,jobDesc,jobId string, topNumber int) (map[string]interface
 	return result,nil
 }
 
-func scoringDetails(token,jobDesc,resumeName string) (map[string]interface{},error){
+func ScoringDetails(token,jobDesc,resumeName string) (map[string]interface{},error){
 	// change the domain in production
 	endpoint := "http://127.0.0.1:8000/matching-process/"
 

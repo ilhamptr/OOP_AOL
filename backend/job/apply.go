@@ -75,8 +75,6 @@ func Apply(db *gorm.DB)gin.HandlerFunc{
 			return
 		}
 
-		// later we can add the scoring algorithm function in this function ( i need more money for this unfortunately :( ))
-		// resumeURL,err := generateSignedURL(filename)
 		_,err =  services.SubmitResume(fileBytes,jobId,name,filename)
 		if err != nil{
 			c.IndentedJSON(http.StatusInternalServerError,gin.H{"error":"something went wrong, try again"})

@@ -34,7 +34,6 @@ type ApplicantDataRes struct{
 }
 
 func SubmitResume(fileBytes []byte,jobID,applicantName,filename string) ([]byte,error) {
-	// change the domain in production
 	projectID := os.Getenv("AI_API_ENDPOINT")
 	endpoint := fmt.Sprintf("%v/resume-processing/%v",projectID,jobID)
 	body := &bytes.Buffer{}
@@ -94,7 +93,6 @@ func GetApplicantData(db *gorm.DB,resumeName string) (map[string]interface{},err
 
 
 func GetScoring(db *gorm.DB,token,jobDesc,jobId string, topNumber int) (map[string]interface{},error){
-	// change the domain in production
 	projectID := os.Getenv("AI_API_ENDPOINT")
 	endpoint := fmt.Sprintf("%v/get-applicants/%v",projectID,jobId)
 

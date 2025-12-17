@@ -54,24 +54,6 @@ type Application struct{
 
 }
 
-type Question struct {
-	ID        string `gorm:"primaryKey;column:id"`
-	JobID     string `gorm:"column:job_id;not null"`
-	Question  string `gorm:"column:question;not null"`
-	Required  bool   `gorm:"column:required;default:true"`
-
-	Job Job `gorm:"foreignKey:JobID;references:ID"`
-}
-
-type QuestionAnswer struct {
-	ID         string `gorm:"primaryKey;column:id"`
-	QuestionID string `gorm:"column:question_id;not null"`
-	Answer     string `gorm:"column:answer;not null"`
-
-	Question Question `gorm:"foreignKey:QuestionID;references:ID"`
-}
-
-
 func DbSession()(*gorm.DB,error){
 	godotenv.Load()
 	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s",

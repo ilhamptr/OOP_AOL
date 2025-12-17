@@ -30,7 +30,6 @@ func GenRefreshTkn(db *gorm.DB, user_email string)(string,error){
 		return "", fmt.Errorf("failed to generate refresh token bytes: %w", err)
 	}
 	tokenStr := base64.RawURLEncoding.EncodeToString(tokenBytes)
-	// nanti ubah expiration refresh token
 	expiration := time.Now().Add(240 * time.Hour)
 	now := time.Now()
 
@@ -79,9 +78,6 @@ func Refresh(db *gorm.DB)gin.HandlerFunc{
 		Email:    user.Email,
 		Username: user.Username,
 		}
-
-		// tkn.IsRevoked = true
-		// db.Save(&tkn)
 
 		strToken, _ := Token(payloadData)
 

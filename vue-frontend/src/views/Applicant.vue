@@ -121,6 +121,7 @@
 <script setup>
 import { ref, onMounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import { apiRequest } from "../lib/api";
 
 const applicants = ref([]);
 const evaluation = ref("");
@@ -134,13 +135,8 @@ const jobId = route.params.id; // <-- now using route param (not query)
 
 async function fetchApplicants() {
   const token = localStorage.getItem("jwt");
-  if (!token) {
-    router.push("/login");
-    return;
-  }
-
   try {
-    const res = await fetch(`http://127.0.0.1:8080/view-applicants/${encodeURIComponent(jobId)}`, {
+    const res = await apiRequest(`http://127.0.0.1:8080/view-applicants/${encodeURIComponent(jobId)}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
 
@@ -166,13 +162,8 @@ async function fetchApplicants() {
 
 async function handleTopApplicants() {
   const token = localStorage.getItem("jwt");
-  if (!token) {
-    router.push("/login");
-    return;
-  }
-
   try {
-    const res = await fetch(
+    const res = await apiRequest(
       `http://127.0.0.1:8080/view-top-applicants/${encodeURIComponent(jobId)}?topNum=${topNum.value}`,
       {
         method: "POST", // change to GET if backend expects GET
@@ -189,8 +180,8 @@ async function handleTopApplicants() {
     applicants.value = (result?.result?.data || []).map(app => ({
       ID: app.ID || app.id,
       ApplicantName: app.ApplicantName || app.applicant_name,
-      Email: app.Email,
-      PhoneNumber: app.PhoneNumber,
+      Email: app.Email || app.email,
+      PhoneNumber: app.PhoneNumber || app.phone,
       ResumeFile: app.ResumeFile || app.resume_file,
       CreatedAt: app.CreatedAt || app.created_at,
     }));
@@ -202,13 +193,9 @@ async function handleTopApplicants() {
 
 async function downloadResume(fileId) {
   const token = localStorage.getItem("jwt");
-  if (!token) {
-    alert("You must be logged in!");
-    return;
-  }
-
+  
   try {
-    const res = await fetch(`http://127.0.0.1:8080/download-resume/${encodeURIComponent(fileId)}`, {
+    const res = await apiRequest(`http://127.0.0.1:8080/download-resume/${encodeURIComponent(fileId)}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
 
@@ -234,13 +221,9 @@ async function downloadResume(fileId) {
 
 async function reviewApplicant(resumeFile) {
   const token = localStorage.getItem("jwt");
-  if (!token) {
-    alert("You must be logged in!");
-    return;
-  }
 
   try {
-    const res = await fetch(
+    const res = await apiRequest(
       `http://127.0.0.1:8080/view-applicant-evaluation/${encodeURIComponent(jobId)}/${encodeURIComponent(resumeFile)}`,
       {
         method: "POST",

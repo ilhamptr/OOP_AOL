@@ -155,7 +155,7 @@ func ScoringApplicants(db *gorm.DB) gin.HandlerFunc{
 			return 
 		}
 
-		val,err := services.GetScoring(token,job.Description,jobId,topNumber)
+		val,err := services.GetScoring(db,token,job.Description,jobId,topNumber)
 		if err != nil{
 			c.IndentedJSON(http.StatusInternalServerError,gin.H{"error":err})
 			return 

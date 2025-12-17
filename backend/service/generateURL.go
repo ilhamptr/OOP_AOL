@@ -43,7 +43,6 @@ func GetResumeFile(db *gorm.DB)gin.HandlerFunc{
             c.IndentedJSON(http.StatusUnauthorized,gin.H{"error":"you are not authorize to access this file"})
 			return 
         }
-        // logic to get resume here
         url, err := generateSignedURL(resumeName)
         if err != nil{
             c.IndentedJSON(http.StatusInternalServerError,gin.H{"error":"an unexpected error has occurred"})

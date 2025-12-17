@@ -13,11 +13,21 @@ type User struct {
 	ID string `gorm:"primaryKey;column:id"`
 	Email string `gorm:"column:email;unique;not null"`
 	Username string `gorm:"column:username;unique;not null"`
-	Password string `gorm:"column:password;not null"`
-	Active bool `gorm:"column:active;default:false"`
+	Password *string `gorm:"column:password"`
+	Provider *string `gorm:"column:provider"`
+	Active bool `gorm:"column:active;default:true"`
 	CreatedAt time.Time
 	
 	Jobs []Job `gorm:"foreignKey:AssignBy;references:ID"`
+}
+
+type Session struct{
+	ID string `gorm:"primaryKey;column:id"`
+	UserEmail string `gorm:"column:user_email;not null"`
+	RefreshToken string `gorm:"column:refresh_token;size:512;not null"`
+	IsRevoked bool `gorm:"column:is_revoked;default:false"`
+	CreatedAt time.Time
+	ExpiresAt time.Time
 }
 
 type Job struct{
@@ -74,8 +84,7 @@ func DbSession()(*gorm.DB,error){
 	if err != nil{
 		panic("Failed to connect to database");
 	}	
-	// err = db.AutoMigrate(&User{},&Job{},&Application{},&Question{},&QuestionAnswer{})
-	err = db.AutoMigrate(&User{},&Job{},&Application{})
+	err = db.AutoMigrate(&User{},&Job{},&Application{},&Session{})
 	if err != nil{
 		return nil,err
 	}

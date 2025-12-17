@@ -140,6 +140,7 @@
 <script setup>
 import { ref, onMounted } from "vue";
 import { useRouter } from "vue-router";
+import { apiRequest } from "../lib/api";
 
 const router = useRouter();
 const jobs = ref([]);
@@ -149,64 +150,44 @@ const form = ref({ job_title: "", description: "" });
 
 function logout() {
   localStorage.removeItem("jwt");
+
   router.push("/login");
 }
 
 
 async function deleteJob(jobId) {
-  const token = localStorage.getItem("jwt");
-  if (!token) {
-    router.push("/login");
+  const res = await apiRequest(`http://127.0.0.1:8080/delete-job/${jobId}`, {
+    method: "DELETE",
+  });
+
+  if (!res.ok) {
+    alert("❌ Failed to delete job");
     return;
   }
 
-  if (!confirm("Are you sure you want to delete this job?")) return;
-
-  try {
-    const res = await fetch(`http://127.0.0.1:8080/delete-job/${jobId}`, {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${token}` },
-    });
-
-    if (!res.ok) {
-      alert("❌ Failed to delete job");
-      return;
-    }
-
-    // Update UI
-    jobs.value = jobs.value.filter((j) => j.ID !== jobId);
-    alert("✅ Job deleted successfully!");
-  } catch (err) {
-    console.error("Error deleting job:", err);
-    alert("❌ An error occurred while deleting the job.");
-  }
+  jobs.value = jobs.value.filter((j) => j.ID !== jobId);
+  alert("✅ Job deleted successfully!");
 }
 
 
+
 async function fetchJobs() {
-  const token = localStorage.getItem("jwt");
-  if (!token) {
-    router.push("/login");
-    return;
-  }
-
   try {
-    const response = await fetch("http://127.0.0.1:8080/jobs", {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    const res = await apiRequest("http://127.0.0.1:8080/jobs");
 
-    if (!response.ok) {
+    if (!res.ok) {
       router.push("/login");
       return;
     }
 
-    const data = await response.json();
+    const data = await res.json();
     jobs.value = data;
 
     // Stats
     stats.value.total = data.length;
     stats.value.active = data.filter((j) => j.Active).length;
     stats.value.inactive = data.length - stats.value.active;
+
     if (data.length > 0) {
       const latestJob = data.reduce((a, b) =>
         new Date(a.CreatedAt) > new Date(b.CreatedAt) ? a : b
@@ -219,19 +200,13 @@ async function fetchJobs() {
   }
 }
 
-async function addJob() {
-  const token = localStorage.getItem("jwt");
-  if (!token) {
-    router.push("/login");
-    return;
-  }
 
+async function addJob() {
   try {
-    const res = await fetch("http://127.0.0.1:8080/add-job", {
+    const res = await apiRequest("http://127.0.0.1:8080/add-job", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify(form.value),
     });
@@ -243,11 +218,13 @@ async function addJob() {
 
     showModal.value = false;
     form.value = { job_title: "", description: "" };
-    fetchJobs();
+
+    await fetchJobs();
   } catch (error) {
     console.error("Error posting job:", error);
   }
 }
+
 
 function copyShareLink(jobId) {
   const link = `http://localhost:5173/apply/${jobId}`; // change this for prod

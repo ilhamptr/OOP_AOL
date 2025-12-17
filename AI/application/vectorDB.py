@@ -66,7 +66,7 @@ async def matchingAlgorithm(jobDesc:str,jobID:str,topNumber:int):
         doc.metadata["id"] = doc.id
         doc.metadata["distance"] = score
         finalResult.append(doc.metadata)
-
+    print(finalResult)
     return {"data":finalResult}       
 
 

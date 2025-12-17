@@ -1,21 +1,19 @@
 package user
 
 import (
-	"fmt"
 	"net/http"
-	"os"
-	"strings"
-	"time"
+	"product/backend/model"
+	"product/backend/service"
+	"product/backend/util"
+	"product/backend/auth"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
-	"golang.org/x/crypto/bcrypt"
+
+
 	"gorm.io/gorm"
-	"github.com/sendgrid/sendgrid-go"
-	"github.com/sendgrid/sendgrid-go/helpers/mail"
-	"product/backend/model"
-	"product/backend/util"
 )
+
 type SignUp struct{
 	Email string `json:"email"`
 	Username string `json:"username"`
@@ -28,114 +26,70 @@ type LoginStruct struct{
 	Password string `json:"password" validate:"required"`
 }
 
-type Payload struct{
-	ID string
-	Email string
-	Username string
 
+func Oauth(db *gorm.DB) gin.HandlerFunc {
+    return func(c *gin.Context) {
+        payload, _ := utils.DecodeSupabaseJWT(c)
+
+        exp, ok := payload["exp"].(float64)
+        if !ok || utils.TokenExpiration(exp) {
+            c.IndentedJSON(http.StatusUnauthorized, gin.H{"error": "Access token expired"})
+            return
+        }
+
+		tokenValid,_ := services.CheckSupabaseToken(c)
+		if !tokenValid{
+			c.IndentedJSON(http.StatusUnauthorized, gin.H{"error": "Access token invalid"})
+            return
+		}
+
+        email, ok := payload["email"].(string)
+        if !ok {
+            c.IndentedJSON(http.StatusUnauthorized, gin.H{"error": "invalid token email"})
+            return
+        }
+		refreshTkn,_ := auth.GenRefreshTkn(db,email)
+
+        var user models.User
+        if err := db.Where("email = ?", email).First(&user).Error; err != nil {
+
+			id := uuid.New()  
+			user := models.User{ID: id.String(),Email:email,Username: email}
+			db.Create(&user)
+
+			payloadData := auth.Payload{
+            ID:       user.ID,
+            Email:    user.Email,
+            Username: user.Username,
+        	}
+			
+			strToken, err := auth.Token(payloadData)
+			if err != nil {
+				c.IndentedJSON(http.StatusInternalServerError, gin.H{"error": "failed to generate token"})
+				return
+			}
+
+            c.IndentedJSON(http.StatusCreated, gin.H{"access_token": strToken,"refresh_token":refreshTkn})
+            return
+        }
+
+        payloadData := auth.Payload{
+            ID:       user.ID,
+            Email:    user.Email,
+            Username: user.Username,
+        }
+
+
+
+        strToken, err := auth.Token(payloadData)
+        if err != nil {
+            c.IndentedJSON(http.StatusInternalServerError, gin.H{"error": "failed to generate token"})
+            return
+        }
+
+        c.IndentedJSON(http.StatusOK, gin.H{"access_token": strToken,"refresh_token":refreshTkn})
+    }
 }
-
-
-
-func Register(db *gorm.DB)gin.HandlerFunc{
-	return func(c *gin.Context){
-	var input SignUp
-	if err := c.BindJSON(&input); err != nil{
-		c.IndentedJSON(http.StatusBadRequest,gin.H{"error":"invalid json"})
-		return
-	}
-
-	if input.Email == "" {
-		c.IndentedJSON(http.StatusBadRequest, gin.H{"error": "email is required"})
-		return
-	}
-	if input.Username == "" {
-		c.IndentedJSON(http.StatusBadRequest, gin.H{"error": "username is required"})
-		return
-	}
-	if input.Password == "" {
-		c.IndentedJSON(http.StatusBadRequest, gin.H{"error": "password is required"})
-		return
-	}
-
-	validPassword := utils.IsValidPassword(input.Password)
-	if !validPassword{
-		c.IndentedJSON(http.StatusBadRequest, gin.H{
-		"error": "Password must be at least 8 characters long and contain at least one special character.",})
-		return
-	}
-
-	var UserExist models.User
-	if err := db.Where("email = ? OR username = ?",input.Email,input.Username).First(&UserExist).Error;err == nil{
-		c.IndentedJSON(http.StatusConflict,gin.H{"error":"username or email already exist"})
-		return
-	}
-	id := uuid.New()  
-	hashedPassword,_ := bcrypt.GenerateFromPassword([]byte(input.Password),bcrypt.DefaultCost)
-	
-	user := models.User{ID: id.String(),Email:input.Email,Username: input.Username,Password: string(hashedPassword)}
-	db.Create(&user)
-
-	err := sendVerifLink(user.Email,user.ID)
-	if err != nil{
-		c.IndentedJSON(http.StatusInternalServerError,gin.H{"error":"can't send verification email, try again"})
-		return
-	}
-
-	c.IndentedJSON(http.StatusCreated,gin.H{
-		"message": "registration success, please check your email",
-	})
-
-}
-}
-
-func token(data Payload)(string,error){
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"id": data.ID,
-		"username": data.Username,
-		"email": data.Email,
-		// this part set the jwt expiration time
-		"exp": time.Now().Add(time.Minute * 120).Unix(),
-	})
-	tokenSting,err := token.SignedString([]byte(os.Getenv("JWT_SECRET")))
-	if err != nil{
-		return "",err
-	}
-	return tokenSting,nil
-
-}
-
-func sendVerifLink(email,id string)error{
-
-	from := mail.NewEmail("Sender", "ilhamptr007@gmail.com")
-	subject := "Sending with SendGrid is Fun"
-	to := mail.NewEmail("Receiver", email)
-	plainTextContent := "and easy to do anywhere, even with Go"
-	htmlContent := fmt.Sprintf("<p>to verify your account please click this link below:<br> http://127.0.0.1:8080/verify-account/%v</p>",id)
-	message := mail.NewSingleEmail(from, subject, to, plainTextContent, htmlContent)
-	client := sendgrid.NewSendClient(os.Getenv("SENDGRID_API_KEY"))
-        // client.Request, _ = sendgrid.SetDataResidency(client.Request, "eu")
-        // uncomment the above line if you are sending mail using a regional EU subuser
-	_, err := client.Send(message)
-	if err !=nil{
-		return fmt.Errorf("email can't be sent")
-	}
-	return nil
-
-	// resend_client := resend.NewClient(os.Getenv("RESEND_API_KEY"))
-	// params := &resend.SendEmailRequest{
-    //     From: "Acme <onboarding@resend.dev>",
-	// 	To: []string{email},
-	// 	Html:    fmt.Sprintf("<p>to verify your account please click this link below:<br> http://127.0.0.1:8080/verify-account/%v</p>",id),
-	// 	Subject: "your verification link",
-
-	// }
-	// _,err := resend_client.Emails.Send(params)
-	// if err !=nil{
-	// 	return fmt.Errorf("email can't be sent")
-	// }
-	// return nil
-} 
 
 func VerifyUser(db *gorm.DB)gin.HandlerFunc{
 	return func (c *gin.Context)  {
@@ -155,68 +109,7 @@ func VerifyUser(db *gorm.DB)gin.HandlerFunc{
 	}
 }
 
-func Login(db *gorm.DB)gin.HandlerFunc{
-	return func(c *gin.Context) {
-		var loginInput LoginStruct
-		if err := c.BindJSON(&loginInput); err != nil{
-			c.IndentedJSON(http.StatusBadRequest,gin.H{"error":"invalid json input"})
-			return
-		} 
 
-		var UserExist models.User
-		if err := db.Where("email = ? OR username = ?",loginInput.Email,loginInput.Username).First(&UserExist).Error; err != nil{
-			c.IndentedJSON(http.StatusUnauthorized,gin.H{"error":"account not found"})
-			return
-		}
-
-		if !UserExist.Active{
-			c.IndentedJSON(http.StatusUnauthorized,gin.H{"error":"please verify your account"})
-			return
-		}
-
-		if err:= bcrypt.CompareHashAndPassword([]byte(UserExist.Password),[]byte(loginInput.Password)); err != nil{
-			c.IndentedJSON(http.StatusUnauthorized, gin.H{"error": "Invalid password"})
-    		return
-		}
-
-		payloadData := Payload{
-			ID: UserExist.ID,
-			Email: UserExist.Email,
-			Username: UserExist.Username,
-		}
-		strToken,err := token(payloadData)
-		if err != nil{
-			c.IndentedJSON(http.StatusInternalServerError,gin.H{"error":"failed to generate token"})
-			return
-		}
-		c.IndentedJSON(http.StatusOK, gin.H{
-        "token": strToken,
-   		})
-
-	}
-}
-
-func Authentication(c *gin.Context){
-	authHeader := c.GetHeader("Authorization")
-
-	if authHeader == "" || !strings.HasPrefix(authHeader,"Bearer "){
-		c.IndentedJSON(http.StatusUnauthorized, gin.H{"error": "Missing or invalid Authorization header"})
-		c.Abort() //stop request
-
-		return
-	}
-	tokenString := strings.TrimPrefix(authHeader,"Bearer ")
-
-	claims,err := verifyToken(tokenString)
-	if err != nil{
-		c.IndentedJSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
-		c.Abort() //stop request
-		return
-	}
-
-	c.Set("claims",claims)
-	c.Next()
-}
 
 func Protected(c *gin.Context){
 	value,exist := c.Get("claims")
@@ -230,19 +123,4 @@ func Protected(c *gin.Context){
 	c.IndentedJSON(http.StatusAccepted,gin.H{"message": userID})
 }
 
-func verifyToken(tokenString string)(jwt.MapClaims,error){
-	token,err := jwt.Parse(tokenString,func(t *jwt.Token) (interface{}, error) {
-		return []byte(os.Getenv("JWT_SECRET")),nil
-	})
-	if err != nil{
-		return nil,err
-	}
-	if !token.Valid{
-		return nil,fmt.Errorf("invalid token")
-	}
-	claims,ok := token.Claims.(jwt.MapClaims)
-	if !ok {
-		return nil,fmt.Errorf("invalid token claim")
-	}
-	return claims,nil
-}
+

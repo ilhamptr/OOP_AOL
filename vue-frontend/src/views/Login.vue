@@ -10,8 +10,8 @@
               d="M12 11c.5304 0 1.0391-.2107 1.4142-.5858C13.7893 10.0391 14 9.5304 14 9V7c0-1.1046-.8954-2-2-2s-2 .8954-2 2v2c0 .5304.2107 1.0391.5858 1.4142C10.9609 10.7893 11.4696 11 12 11zM6 9v12h12V9H6z"/>
           </svg>
         </div>
-        <h1 class="text-2xl font-bold text-gray-900 mt-4">SecureApp</h1>
-        <p class="text-gray-500 text-sm">Your trusted platform for secure access</p>
+        <h1 class="text-2xl font-bold text-gray-900 mt-4">MatchGrid</h1>
+        <p class="text-gray-500 text-sm">Your trusted platform for Recruitment Process</p>
       </div>
 
       <!-- Welcome -->

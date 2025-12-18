@@ -150,6 +150,7 @@ const form = ref({ job_title: "", description: "" });
 
 function logout() {
   localStorage.removeItem("jwt");
+  localStorage.removeItem("refresh_token");
 
   router.push("/login");
 }

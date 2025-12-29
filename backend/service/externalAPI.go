@@ -11,6 +11,8 @@ import (
 	"time"
 	"gorm.io/gorm"
 	"product/backend/model"
+	"sync"
+
 
 )
 
@@ -123,32 +125,55 @@ func GetScoring(db *gorm.DB,token,jobDesc,jobId string, topNumber int) (map[stri
 	}
 
 	dataArr, ok := result["data"].([]interface{})
-	if !ok || len(dataArr) == 0 {
+	count := len(dataArr)
+
+	if !ok || count == 0 {
 		return nil, fmt.Errorf("data field missing or empty")
 	}
+	results := make([]map[string]interface{}, count)
 
-	item, ok := dataArr[0].(map[string]interface{})
-	if !ok {
-		return nil, fmt.Errorf("invalid data item format")
+	var wg sync.WaitGroup
+	wg.Add(count)
+
+	for i, raw := range dataArr {
+		go func(index int, item interface{}) {
+			defer wg.Done()
+
+			obj, ok := item.(map[string]interface{})
+			if !ok {
+				return
+			}
+
+			fileName, ok := obj["resume_file"].(string)
+			if !ok {
+				return
+			}
+
+			applicantData, err := GetApplicantData(db, fileName)
+			if err != nil {
+				return
+			}
+
+			results[index] = applicantData  
+		}(i, raw)
 	}
 
-	fileName,_ := item["resume_file"].(string)
-	if !ok {
-		return nil, fmt.Errorf("id not found or invalid")
-	}
+	wg.Wait()
 
-	applicantData,err := GetApplicantData(db,fileName)
-	if err != nil{
-		return nil, fmt.Errorf("failed to get applicant data")
+	// remove nil entries if any goroutine failed
+	final := make([]map[string]interface{}, 0, count)
+	for _, r := range results {
+		if r != nil {
+			final = append(final, r)
+		}
 	}
-
 
 	response := map[string]interface{}{
-		"data": []map[string]interface{}{applicantData},
+		"data": final,
 	}
-	fmt.Printf("%v",response)
-	return response,nil
-}
+
+	return response, nil
+	}
 
 func ScoringDetails(token,jobDesc,resumeName string) (map[string]interface{},error){
 	projectID := os.Getenv("AI_API_ENDPOINT")

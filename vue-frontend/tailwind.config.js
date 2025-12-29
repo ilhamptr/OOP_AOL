@@ -5,7 +5,11 @@ export default {
     "./src/**/*.{vue,js,ts,jsx,tsx}",  // 👈 scan all Vue/JS/TS files
   ],
   theme: {
-    extend: {},
+    extend: {
+      fontFamily: {
+        sans: ['"Instrument Sans"', "sans-serif"],
+      },
+    },
   },
   plugins: [],
 }
